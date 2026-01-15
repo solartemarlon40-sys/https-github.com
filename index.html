@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Animador de Personajes ULTRA PRO</title>
+<style>
+body{margin:0;font-family:Arial;background:#0f0f0f;color:#fff}
+header{padding:10px;text-align:center;background:#000}
+.app{display:flex;height:calc(100vh - 60px)}
+.tools{width:320px;background:#1c1c1c;padding:10px;overflow:auto}
+.tools h3{margin:10px 0 5px}
+button,input{width:100%;margin:5px 0;padding:8px;border-radius:6px;border:none}
+button{background:#333;color:#fff;cursor:pointer}
+button:hover{background:#555}
+.canvas-area{flex:1;display:flex;justify-content:center;align-items:center;background:#333}
+canvas{background:#fff;border-radius:10px;touch-action:none}
+.timeline{display:flex;gap:5px;flex-wrap:wrap}
+.frame{padding:5px 8px;background:#444;border-radius:4px;cursor:pointer}
+.frame.active{background:#00aaff}
+</style>
+</head>
+<body>
+<header>
+<h2>Animador de Personajes ULTRA PRO</h2>
+<p>Dibuja • Colorea • Articula • Frames • Play • Guarda infinito</p>
+</header>
+<div class="app">
+<div class="tools">
+<h3>Usuario</h3>
+<input id="user" placeholder="Nombre de usuario">
+<button onclick="login()">Entrar</button>
+<p id="msg"></p>
+<h3>Modo</h3>
+<button onclick="modo='dibujar'">✏ Dibujar</button>
+<button onclick="modo='seleccionar'">🖐 Seleccionar</button>
+<button onclick="modo='rotar'">🔄 Rotar (arrastrando)</button>
+<h3>Color</h3>
+<input type="color" id="color" value="#000000">
+<h3>Rotación</h3>
+<input type="range" id="rot" min="-180" max="180" value="0" oninput="sliderRotar()">
+<h3>Frames</h3>
+<button onclick="nuevoFrame()">➕ Nuevo Frame</button>
+<button onclick="play()">▶ Play</button>
+<button onclick="pause()">⏸ Pause</button>
+<div class="timeline" id="timeline"></div>
+<h3>Acciones</h3>
+<button onclick="guardar()">💾 Guardar</button>
+<button onclick="limpiar()">🧹 Limpiar</button>
+</div>
+<div class="canvas-area">
+<canvas id="cv" width="800" height="500"></canvas>
+</div>
+</div>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let modo='dibujar',dib=false,user=null;
+let partes=[],actual=null;
+let frames=[[]],frame=0;
+let playing=false,dragRot=false;
+
+function login(){user=document.getElementById('user').value;document.getElementById('msg').innerText='Hola '+user;cargar();renderFrames();draw()}
+function pos(e){const r=cv.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return{x:t.clientX-r.left,y:t.clientY-r.top}}
+
+cv.onmousedown=cv.ontouchstart=e=>{const p=pos(e);dib=true;
+if(modo==='dibujar'){actual={puntos:[p],color:color.value,rot:0,ox:p.x,oy:p.y};partes.push(actual)}
+if(modo==='seleccionar'){actual=partes.find(x=>x.puntos.some(pt=>Math.hypot(pt.x-p.x,pt.y-p.y)<10));if(actual)document.getElementById('rot').value=actual.rot}
+if(modo==='rotar'&&actual){dragRot=true}}
+
+cv.onmouseup=cv.ontouchend=()=>{dib=false;dragRot=false}
+
+cv.onmousemove=cv.ontouchmove=e=>{
+if(modo==='dibujar'&&dib){actual.puntos.push(pos(e));draw()}
+if(modo==='rotar'&&dragRot&&actual){const p=pos(e);actual.rot=Math.atan2(p.y-actual.oy,p.x-actual.ox)*180/Math.PI;document.getElementById('rot').value=actual.rot;draw()}}
+
+function draw(){ctx.clearRect(0,0,cv.width,cv.height);partes.forEach(p=>{ctx.save();ctx.translate(p.ox,p.oy);ctx.rotate(p.rot*Math.PI/180);ctx.translate(-p.ox,-p.oy);ctx.strokeStyle=p.color;ctx.lineWidth=2;ctx.beginPath();p.puntos.forEach((pt,i)=>i?ctx.lineTo(pt.x,pt.y):ctx.moveTo(pt.x,pt.y));ctx.stroke();ctx.restore()})}
+
+function sliderRotar(){if(actual){actual.rot=rot.value;draw()}}
+function nuevoFrame(){frames.push(JSON.parse(JSON.stringify(partes)));frame=frames.length-1;renderFrames()}
+function renderFrames(){const t=document.getElementById('timeline');t.innerHTML='';frames.forEach((f,i)=>{const d=document.createElement('div');d.className='frame'+(i===frame?' active':'');d.innerText=i+1;d.onclick=()=>{frame=i;partes=JSON.parse(JSON.stringify(frames[i]));renderFrames();draw()};t.appendChild(d)})}
+
+function play(){playing=true;animar()}
+function pause(){playing=false}
+function animar(){if(!playing)return;frame=(frame+1)%frames.length;partes=JSON.parse(JSON.stringify(frames[frame]));renderFrames();draw();setTimeout(animar,300)}
+
+function guardar(){if(user)localStorage.setItem('anim_'+user,JSON.stringify(frames))}
+function cargar(){const d=localStorage.getItem('anim_'+user);if(d){frames=JSON.parse(d);partes=frames[0]||[]}}
+function limpiar(){partes=[];frames=[[]];frame=0;draw();renderFrames()}
+
+renderFrames();
+</script>
+</body>
+</html>
